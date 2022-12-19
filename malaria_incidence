@@ -1,0 +1,191 @@
+#!/bin/bash
+
+# Author: Samuel Kent 22704037
+
+# malaria_incidence takes 1 arg only. reads from incedenceOfMalaria.csv and uses title_case.py
+
+# if arg is year: report country with highest incidence of malaria for that year + the incidence value
+# if arg is Country: report year with highest incidence for that country + the incidence value
+
+#THE PYTHON SCRIPT IS EXPECTED TO BE IN THE SAME DIRECTORY FOR THIS SCRIPT. IS NAMED title_case.py
+
+
+#set the internal field seperator to be by line for later
+IFS=$'\n'
+
+
+#Some variables with global scope for later:
+
+#variable to check if is a valid int
+export intgroup='^[0-9]+$'
+
+export year
+export country
+
+export validcountry
+export validyear
+
+export country_no_brackets
+export i_no_brackets
+
+
+
+
+
+# CHECK USAGE
+#check only 1 non-zero arg is given
+if [[ $# -ne 1 ]] || [[ ! -n $1 ]]
+then
+        echo "Illegal number of parameters"
+	echo "Usage: $0 <argument>"
+	exit 1 #exit failure is 1 for this program, success 0
+fi
+
+
+
+#if arg is not a number save it as a country
+#fully capitalize all the words in the country name (using title_case.py)
+if ! [[ $1 =~ $intgroup ]]
+then
+	country=$( echo $1 | ./title_case.py -)
+	country_no_brackets=$( echo $country | sed -e 's/([^()]*)//g' | sed -e 's/ //g'  ) #remove the brackets and the brackets contents for the sake of continuity
+fi
+
+
+
+#if arg is a number (ie belongs to intgroup) and fits within the year range save it as the year, otherwise exit failure if outside range
+if [[ $1 =~ $intgroup && $1 < 2019 && $1 > 1999 ]]
+then
+        year=$1
+	validyear=true #is set to later activate the year function
+
+elif [[ $1 =~ $intgroup && $1 > 2018 || $1 < 2000 ]]
+then
+	echo "invalid year (must be between 2000 - 2018 inclusive)"
+	exit 1
+fi
+
+
+#Handle unique edge case for Vietnam
+if [ "$1" == "Vietnam" ] || [ "$1" == "vietnam" ]
+then
+	validcountry=true
+	country="Viet Nam"
+	country_no_brackets=$( echo $country | sed -e 's/([^()]*)//g' | sed -e 's/ //g'  )
+fi
+
+
+
+
+#if a word given check if it's a valid country
+#take list of unique countries from incedenceOfMalaria.csv (also fully capitalized) ,loop through them to see if a valid country has been given
+if ! [[ $1 =~ $intgroup ]]
+then
+        validcountries=$( tail incedenceOfMalaria.csv -n +2 | cut -d, -f1 | sort | uniq) #list of validcountries from the .csv file, ignore first line and take names only
+
+	#loop through all country names from the .csv
+        for i in $validcountries
+        do
+
+        curr_country=$( echo $i | ./title_case.py - )
+        curr_country_no_brackets=$( echo $curr_country | sed -e 's/([^()]*)//g' | sed -e 's/ //g' ) #also remove brackets for continuity
+
+
+			#compare them both, both capitilzed and brackets removed
+                        if [[ $curr_country_no_brackets == $country_no_brackets ]]
+                        then
+
+                        validcountry=true #flag meaning the country is in the .csv
+                        country=$i #save as the countries orginal name within the .csv file
+
+                        break
+                        fi
+
+        done
+
+#throw error if the given country cannot be found
+if [[ $validcountry != "true" ]]
+then
+
+        echo "Invalid country for this database"
+        exit 1
+fi
+
+
+fi
+
+
+
+#If a valid country that is in the .csv is given then analyse the incidence
+if [[ $validcountry == "true" ]]
+then
+	#use the capitilzed and brackets removed version
+        country_analysing=$country_no_brackets
+
+	#initialize variables
+	highest_incidence=0
+	highest_year=0
+
+
+	#loop through the .csv file line by line for that particular country, remove the 2nd column as it is useless
+        for j in $( tail incedenceOfMalaria.csv -n +2 | cut -d, -f1,3,4 | grep -F "$country"  )
+        do
+
+
+		#take the information for the current line
+                curr_incidence=$( echo $j | cut -d, -f3 )
+                curr_country=$( echo $j | cut -d, -f1 | sed -e 's/([^()]*)//g' | sed -e 's/ //g' )
+		curr_year=$( echo $j | cut -d, -f2 )
+
+
+		#if a greater incidence is found then set it as the highest
+                if [[ "$curr_incidence" -gt "$highest_incidence" ]]
+                then
+                                highest_incidence=$curr_incidence
+
+				highest_year=$curr_year
+
+                fi
+
+        done
+
+	#output to the user and exit success
+        echo "For the country $country, the year with the highest incidence was $highest_year, with a rate of $highest_incidence per 1,000"
+	exit 0
+fi
+
+
+
+
+
+#Function for if a valid year has been given
+if [[ $validyear == "true" ]]
+then
+	#initialize variables
+	highest_incidence=0
+	curr_incidence=0
+
+
+	#loop through .csv file line by line where the year is the same as the given year, also remove the 2nd column again
+	for a in $( tail incedenceOfMalaria.csv -n +2 | cut -d, -f1,3,4 | grep -F "$year"  )
+	do
+		#info taken from the current line
+		curr_incidence=$( echo $a | cut -d, -f3 )
+		curr_country=$( echo $a | cut -d, -f1 )
+
+
+		#if the current incidence of this line is greater than the saved one, swap them
+		if [[ "$curr_incidence" -gt "$highest_incidence" ]]
+                then
+
+                                highest_incidence=$curr_incidence
+                                highest_country=$curr_country
+
+		fi
+
+	done
+
+	#output to the user and exit success
+	echo "For the year $year, the country with the highest incidence was $highest_country, with a rate of $highest_incidence per 1,000"
+	exit 0
+fi
