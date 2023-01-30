@@ -1,5 +1,6 @@
 # malaria_incidence
-A Simple Bash CL tool - perfect score on auto marker
+Command Line tool used to interpret a .csv file - perfect score on auto marker
+
 
 
 Author: Samuel Kent 22704037
