@@ -1,5 +1,5 @@
 # malaria_incidence
-Command Line tool used to interpret a .csv file - perfect score on auto marker
+Command Line tool used to read a .csv file on malaria cases - perfect score on auto marker
 
 
 
